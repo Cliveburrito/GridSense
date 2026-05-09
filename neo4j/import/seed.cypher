@@ -1,7 +1,6 @@
 // neo4j/import/seed.cypher
 
-// Constraints — run once at startup
-
+// Constraints
 CREATE CONSTRAINT gsp_id IF NOT EXISTS
 FOR (g:GridSupplyPoint) REQUIRE g.gsp_id IS UNIQUE;
 
@@ -15,9 +14,8 @@ CREATE CONSTRAINT meter_id IF NOT EXISTS
 FOR (m:SmartMeter) REQUIRE m.meter_id IS UNIQUE;
 
 
-// ── Nodes ────────────────────────────────────────────────────────
+// Nodes
 
-// Grid Supply Point
 MERGE (:GridSupplyPoint {
   gsp_id: "GSP_NORTH",
   name: "Northern Grid Supply Point",
@@ -25,7 +23,6 @@ MERGE (:GridSupplyPoint {
   region: "North Metro"
 });
 
-// Substations
 MERGE (:Substation {
   substation_id: "SS_001",
   name: "Volos Primary",
@@ -44,7 +41,6 @@ MERGE (:Substation {
   commissioned_year: 2006
 });
 
-// Distribution Transformers
 MERGE (:Transformer {
   asset_id: "TX_001_A",
   rating_kVA: 400,
@@ -72,26 +68,106 @@ MERGE (:Transformer {
   last_inspection: date("2024-08-11")
 });
 
-// Smart Meters
-MERGE (:SmartMeter { meter_id: "SM_00001", premise_id: "PREM_10001", tariff_class: "residential", phase: "single" });
-MERGE (:SmartMeter { meter_id: "SM_00002", premise_id: "PREM_10002", tariff_class: "residential", phase: "single" });
-MERGE (:SmartMeter { meter_id: "SM_00003", premise_id: "PREM_10003", tariff_class: "commercial", phase: "three" });
-MERGE (:SmartMeter { meter_id: "SM_00004", premise_id: "PREM_10004", tariff_class: "residential", phase: "single" });
-MERGE (:SmartMeter { meter_id: "SM_00005", premise_id: "PREM_10005", tariff_class: "commercial", phase: "three" });
-MERGE (:SmartMeter { meter_id: "SM_00006", premise_id: "PREM_10006", tariff_class: "residential", phase: "single" });
-MERGE (:SmartMeter { meter_id: "SM_00007", premise_id: "PREM_10007", tariff_class: "residential", phase: "single" });
-MERGE (:SmartMeter { meter_id: "SM_00008", premise_id: "PREM_10008", tariff_class: "commercial", phase: "three" });
-MERGE (:SmartMeter { meter_id: "SM_00009", premise_id: "PREM_10009", tariff_class: "residential", phase: "single" });
-MERGE (:SmartMeter { meter_id: "SM_00010", premise_id: "PREM_10010", tariff_class: "residential", phase: "single" });
-MERGE (:SmartMeter { meter_id: "SM_00011", premise_id: "PREM_10011", tariff_class: "residential", phase: "single" });
-MERGE (:SmartMeter { meter_id: "SM_00012", premise_id: "PREM_10012", tariff_class: "commercial", phase: "three" });
-MERGE (:SmartMeter { meter_id: "SM_00013", premise_id: "PREM_10013", tariff_class: "residential", phase: "single" });
-MERGE (:SmartMeter { meter_id: "SM_00014", premise_id: "PREM_10014", tariff_class: "residential", phase: "single" });
+MERGE (:SmartMeter {
+  meter_id: "SM_00001",
+  premise_id: "PREM_10001",
+  tariff_class: "residential",
+  phase: "single"
+});
+
+MERGE (:SmartMeter {
+  meter_id: "SM_00002",
+  premise_id: "PREM_10002",
+  tariff_class: "residential",
+  phase: "single"
+});
+
+MERGE (:SmartMeter {
+  meter_id: "SM_00003",
+  premise_id: "PREM_10003",
+  tariff_class: "commercial",
+  phase: "three"
+});
+
+MERGE (:SmartMeter {
+  meter_id: "SM_00004",
+  premise_id: "PREM_10004",
+  tariff_class: "residential",
+  phase: "single"
+});
+
+MERGE (:SmartMeter {
+  meter_id: "SM_00005",
+  premise_id: "PREM_10005",
+  tariff_class: "commercial",
+  phase: "three"
+});
+
+MERGE (:SmartMeter {
+  meter_id: "SM_00006",
+  premise_id: "PREM_10006",
+  tariff_class: "residential",
+  phase: "single"
+});
+
+MERGE (:SmartMeter {
+  meter_id: "SM_00007",
+  premise_id: "PREM_10007",
+  tariff_class: "residential",
+  phase: "single"
+});
+
+MERGE (:SmartMeter {
+  meter_id: "SM_00008",
+  premise_id: "PREM_10008",
+  tariff_class: "commercial",
+  phase: "three"
+});
+
+MERGE (:SmartMeter {
+  meter_id: "SM_00009",
+  premise_id: "PREM_10009",
+  tariff_class: "residential",
+  phase: "single"
+});
+
+MERGE (:SmartMeter {
+  meter_id: "SM_00010",
+  premise_id: "PREM_10010",
+  tariff_class: "residential",
+  phase: "single"
+});
+
+MERGE (:SmartMeter {
+  meter_id: "SM_00011",
+  premise_id: "PREM_10011",
+  tariff_class: "residential",
+  phase: "single"
+});
+
+MERGE (:SmartMeter {
+  meter_id: "SM_00012",
+  premise_id: "PREM_10012",
+  tariff_class: "commercial",
+  phase: "three"
+});
+
+MERGE (:SmartMeter {
+  meter_id: "SM_00013",
+  premise_id: "PREM_10013",
+  tariff_class: "residential",
+  phase: "single"
+});
+
+MERGE (:SmartMeter {
+  meter_id: "SM_00014",
+  premise_id: "PREM_10014",
+  tariff_class: "residential",
+  phase: "single"
+});
 
 
-// ── Relationships ────────────────────────────────────────────────
-
-// MATCH before MERGE to avoid duplicates in repeated seed runs
+// Relationships
 
 MATCH (g:GridSupplyPoint {gsp_id: "GSP_NORTH"})
 MATCH (s:Substation {substation_id: "SS_001"})
@@ -135,7 +211,6 @@ MERGE (s)-[:SUPPLIES {
   phase: "ABC"
 }]->(t);
 
-// TX_001_A connected meters
 MATCH (t:Transformer {asset_id: "TX_001_A"})
 MATCH (m:SmartMeter {meter_id: "SM_00001"})
 MERGE (t)-[:CONNECTS_TO {service_line_m: 18}]->(m);
@@ -152,7 +227,6 @@ MATCH (t:Transformer {asset_id: "TX_001_A"})
 MATCH (m:SmartMeter {meter_id: "SM_00004"})
 MERGE (t)-[:CONNECTS_TO {service_line_m: 21}]->(m);
 
-// TX_002_B connected meters
 MATCH (t:Transformer {asset_id: "TX_002_B"})
 MATCH (m:SmartMeter {meter_id: "SM_00005"})
 MERGE (t)-[:CONNECTS_TO {service_line_m: 19}]->(m);
@@ -169,7 +243,6 @@ MATCH (t:Transformer {asset_id: "TX_002_B"})
 MATCH (m:SmartMeter {meter_id: "SM_00008"})
 MERGE (t)-[:CONNECTS_TO {service_line_m: 22}]->(m);
 
-// TX_003_C connected meters
 MATCH (t:Transformer {asset_id: "TX_003_C"})
 MATCH (m:SmartMeter {meter_id: "SM_00009"})
 MERGE (t)-[:CONNECTS_TO {service_line_m: 23}]->(m);

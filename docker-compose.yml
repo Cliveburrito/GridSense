@@ -60,7 +60,26 @@ services:
       interval: 20s
       timeout: 5s
       retries: 8
-
+  neo4j-init:
+    image: docker.io/library/neo4j:5-community
+    container_name: gridsense_neo4j_init
+    depends_on:
+      graph-db:
+        condition: service_healthy
+    volumes:
+      - ./neo4j/import/seed.cypher:/seed.cypher:ro,z
+    entrypoint: [ "/bin/bash", "-c" ]
+    command: >
+      "
+      echo 'Waiting for Neo4j Bolt service...' &&
+      until cypher-shell -a bolt://graph-db:7687 -u neo4j -p ${NEO4J_PASSWORD} 'RETURN 1'; do
+        echo 'Neo4j not ready yet. Retrying in 5 seconds...';
+        sleep 5;
+      done &&
+      echo 'Applying Neo4j seed...' &&
+      cypher-shell -a bolt://graph-db:7687 -u neo4j -p ${NEO4J_PASSWORD} -f /seed.cypher &&
+      echo 'Neo4j seed applied successfully.'
+      "
   catalog-db:
     image: docker.io/library/mongo:7
     container_name: gridsense_mongo
@@ -126,7 +145,7 @@ services:
       timeseries-db:
         condition: service_completed_successfully
       graph-db:
-        condition: service_healthy
+        condition: service_completed_successfully
       catalog-db:
         condition: service_healthy
       billing-db:
