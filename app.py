@@ -1,12 +1,24 @@
-from flask import Flask
+from fastapi import FastAPI
 
-app = Flask(__name__)
+app = FastAPI(
+    title="GridSense API",
+    description="Smart power grid analytics and fault management prototype.",
+    version="0.1.0",
+)
 
 
-@app.route('/')
-def hello_world():  # put application's code here
-    return 'Hello World!'
+@app.get("/health")
+def health_check():
+    return {
+        "status": "ok",
+        "service": "gridsense-api",
+    }
 
 
-if __name__ == '__main__':
-    app.run()
+@app.get("/")
+def root():
+    return {
+        "message": "GridSense API is running",
+        "docs": "/docs",
+        "health": "/health",
+    }
