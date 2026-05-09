@@ -46,6 +46,36 @@ VALUES
     ('Nikos Papadopoulos', 'nikos.papadopoulos@example.com')
 ON CONFLICT (email) DO NOTHING;
 
+INSERT INTO premises (customer_id, address, district, transformer_id)
+SELECT
+    c.customer_id,
+    '12 Egnatia Street',
+    'Thessaloniki Center',
+    'TX_001_A'
+FROM customers c
+WHERE c.email = 'maria.nikolaou@example.com'
+  AND NOT EXISTS (
+      SELECT 1
+      FROM premises p
+      WHERE p.customer_id = c.customer_id
+        AND p.address = '12 Egnatia Street'
+  );
+
+INSERT INTO premises (customer_id, address, district, transformer_id)
+SELECT
+    c.customer_id,
+    '48 Tsimiski Avenue',
+    'Thessaloniki Center',
+    'TX_002_B'
+FROM customers c
+WHERE c.email = 'nikos.papadopoulos@example.com'
+  AND NOT EXISTS (
+      SELECT 1
+      FROM premises p
+      WHERE p.customer_id = c.customer_id
+        AND p.address = '48 Tsimiski Avenue'
+  );
+
 INSERT INTO tariffs (name, tariff_rules)
 VALUES
     (
@@ -63,3 +93,16 @@ VALUES
         }'::jsonb
     )
 ON CONFLICT (name) DO NOTHING;
+
+INSERT INTO bills (premise_id, billing_month, total_kwh, total_amount, status)
+SELECT
+    p.premise_id,
+    DATE '2026-04-01',
+    245.750,
+    49.15,
+    'ISSUED'
+FROM premises p
+JOIN customers c ON c.customer_id = p.customer_id
+WHERE c.email = 'maria.nikolaou@example.com'
+  AND p.address = '12 Egnatia Street'
+ON CONFLICT (premise_id, billing_month) DO NOTHING;

@@ -143,9 +143,9 @@ services:
       - .env
     depends_on:
       timeseries-db:
-        condition: service_completed_successfully
+        condition: service_healthy
       graph-db:
-        condition: service_completed_successfully
+        condition: service_healthy
       catalog-db:
         condition: service_healthy
       billing-db:
