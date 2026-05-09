@@ -21,6 +21,26 @@ services:
       timeout: 10s
       retries: 10
 
+  cassandra-init:
+    image: docker.io/library/cassandra:4.1
+    container_name: gridsense_cassandra_init
+    depends_on:
+      timeseries-db:
+        condition: service_healthy
+    volumes:
+      - ./cql/init.cql:/schema/init.cql:ro,z
+    command: >
+      bash -c "
+        echo 'Waiting for Cassandra CQL service...' &&
+        until cqlsh timeseries-db 9042 -e 'DESCRIBE KEYSPACES'; do
+          echo 'Cassandra CQL not ready yet. Retrying in 5 seconds...';
+          sleep 5;
+        done &&
+        echo 'Applying Cassandra schema...' &&
+        cqlsh timeseries-db 9042 -f /schema/init.cql &&
+        echo 'Cassandra schema applied successfully.'
+      "
+
   graph-db:
     image: docker.io/library/neo4j:5-community
     container_name: gridsense_neo4j
@@ -104,7 +124,7 @@ services:
       - .env
     depends_on:
       timeseries-db:
-        condition: service_healthy
+        condition: service_completed_successfully
       graph-db:
         condition: service_healthy
       catalog-db:
