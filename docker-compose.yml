@@ -1,0 +1,126 @@
+version: "3.9"
+
+services:
+  timeseries-db:
+    image: cassandra:4.1
+    container_name: gridsense_cassandra
+    restart: unless-stopped
+    ports:
+      - "9042:9042"
+    environment:
+      CASSANDRA_CLUSTER_NAME: "GridSenseCluster"
+      CASSANDRA_DC: "dc1"
+      HEAP_NEWSIZE: "128M"
+      MAX_HEAP_SIZE: "512M"
+    volumes:
+      - cassandra_data:/var/lib/cassandra
+      - ./cql/init.cql:/docker-entrypoint-initdb.d/init.cql
+    healthcheck:
+      test: ["CMD-SHELL", "nodetool status | grep -q '^UN'"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+
+  graph-db:
+    image: neo4j:5-community
+    container_name: gridsense_neo4j
+    restart: unless-stopped
+    ports:
+      - "7474:7474" # Browser UI
+      - "7687:7687" # Bolt protocol
+    environment:
+      NEO4J_AUTH: "neo4j/${NEO4J_PASSWORD}"
+      NEO4J_PLUGINS: '["apoc"]'
+      NEO4J_dbms_memory_heap_max__size: "512M"
+    volumes:
+      - neo4j_data:/data
+      - ./neo4j/import:/import
+    healthcheck:
+      test: ["CMD", "wget", "-O", "/dev/null", "http://localhost:7474"]
+      interval: 20s
+      timeout: 5s
+      retries: 8
+
+  catalog-db:
+    image: mongo:7
+    container_name: gridsense_mongo
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: "${MONGO_INITDB_ROOT_USERNAME}"
+      MONGO_INITDB_ROOT_PASSWORD: "${MONGO_INITDB_ROOT_PASSWORD}"
+      MONGO_INITDB_DATABASE: "${MONGO_INITDB_DATABASE}"
+    volumes:
+      - mongo_data:/data/db
+      - ./mongo/init.js:/docker-entrypoint-initdb.d/init.js:ro
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 20s
+      timeout: 10s
+      retries: 8
+
+  billing-db:
+    image: postgres:15
+    container_name: gridsense_postgres
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: "${POSTGRES_DB}"
+      POSTGRES_USER: "${POSTGRES_USER}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 8
+
+  cache:
+    image: redis:7-alpine
+    container_name: gridsense_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 8
+
+  api:
+    build:
+      context: ./api
+    container_name: gridsense_api
+    restart: unless-stopped
+    ports:
+      - "${API_PORT:-8000}:8000"
+    env_file:
+      - .env
+    depends_on:
+      timeseries-db:
+        condition: service_healthy
+      graph-db:
+        condition: service_healthy
+      catalog-db:
+        condition: service_healthy
+      billing-db:
+        condition: service_healthy
+      cache:
+        condition: service_healthy
+
+volumes:
+  cassandra_data:
+  neo4j_data:
+  mongo_data:
+  pg_data:
+  redis_data:
+
+networks:
+  default:
+    name: gridsense_net
