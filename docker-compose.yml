@@ -2,7 +2,7 @@ version: "3.9"
 
 services:
   timeseries-db:
-    image: cassandra:4.1
+    image: docker.io/library/cassandra:4.1
     container_name: gridsense_cassandra
     restart: unless-stopped
     ports:
@@ -14,7 +14,7 @@ services:
       MAX_HEAP_SIZE: "512M"
     volumes:
       - cassandra_data:/var/lib/cassandra
-      - ./cql/init.cql:/docker-entrypoint-initdb.d/init.cql
+      - ./cql/init.cql:/docker-entrypoint-initdb.d/init.cql:ro,z
     healthcheck:
       test: ["CMD-SHELL", "nodetool status | grep -q '^UN'"]
       interval: 30s
@@ -22,7 +22,7 @@ services:
       retries: 10
 
   graph-db:
-    image: neo4j:5-community
+    image: docker.io/library/neo4j:5-community
     container_name: gridsense_neo4j
     restart: unless-stopped
     ports:
@@ -34,7 +34,7 @@ services:
       NEO4J_dbms_memory_heap_max__size: "512M"
     volumes:
       - neo4j_data:/data
-      - ./neo4j/import:/import
+      - ./neo4j/import:/import:z
     healthcheck:
       test: ["CMD", "wget", "-O", "/dev/null", "http://localhost:7474"]
       interval: 20s
@@ -42,7 +42,7 @@ services:
       retries: 8
 
   catalog-db:
-    image: mongo:7
+    image: docker.io/library/mongo:7
     container_name: gridsense_mongo
     restart: unless-stopped
     ports:
@@ -53,7 +53,7 @@ services:
       MONGO_INITDB_DATABASE: "${MONGO_INITDB_DATABASE}"
     volumes:
       - mongo_data:/data/db
-      - ./mongo/init.js:/docker-entrypoint-initdb.d/init.js:ro
+      - ./mongo/init.js:/docker-entrypoint-initdb.d/init.js:ro,z
     healthcheck:
       test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
       interval: 20s
@@ -61,7 +61,7 @@ services:
       retries: 8
 
   billing-db:
-    image: postgres:15
+    image: docker.io/library/postgres:15
     container_name: gridsense_postgres
     restart: unless-stopped
     ports:
@@ -72,7 +72,7 @@ services:
       POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
     volumes:
       - pg_data:/var/lib/postgresql/data
-      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro,z
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 10s
@@ -80,7 +80,7 @@ services:
       retries: 8
 
   cache:
-    image: redis:7-alpine
+    image: docker.io/library/redis:7-alpine
     container_name: gridsense_redis
     restart: unless-stopped
     ports:
