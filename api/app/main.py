@@ -1,13 +1,24 @@
 from fastapi import FastAPI
 
-app = FastAPI()
+app = FastAPI(
+    title="GridSense API",
+    description="Smart power grid analytics and fault management prototype.",
+    version="0.1.0",
+)
+
+
+@app.get("/health")
+def health_check():
+    return {
+        "status": "ok",
+        "service": "gridsense-api",
+    }
 
 
 @app.get("/")
-async def root():
-    return {"message": "Hello World"}
-
-
-@app.get("/hello/{name}")
-async def say_hello(name: str):
-    return {"message": f"Hello {name}"}
+def root():
+    return {
+        "message": "GridSense API is running",
+        "docs": "/docs",
+        "health": "/health",
+    }
