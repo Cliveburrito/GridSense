@@ -1,6 +1,17 @@
-# TODO: Replace this placeholder with a Neo4j driver factory for the /grid
-# implementation pass. Connection settings must come from environment variables.
+import os
+from functools import lru_cache
+
+from neo4j import AsyncDriver, AsyncGraphDatabase
 
 
-def get_driver():
-    raise NotImplementedError("Neo4j driver factory is not implemented yet.")
+@lru_cache
+def get_driver() -> AsyncDriver:
+    return AsyncGraphDatabase.driver(
+        os.getenv("NEO4J_URI", "bolt://graph-db:7687"),
+        auth=(os.getenv("NEO4J_USER", "neo4j"), os.environ["NEO4J_PASSWORD"]),
+    )
+
+
+async def shutdown() -> None:
+    if get_driver.cache_info().currsize:
+        await get_driver().close()

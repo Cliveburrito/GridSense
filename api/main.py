@@ -1,26 +1,32 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 
-from routers.alerts import router as alerts_router
-from routers.billing import router as billing_router
-from routers.equipment import router as equipment_router
-from routers.grid import router as grid_router
-from routers.sensors import router as sensors_router
+from db import cassandra, mongo, neo4j, postgres, redis
+from routers import alerts, billing, equipment, grid, sensors
 
-app = FastAPI(
-    title="GridSense API",
-    description="Smart power grid analytics and fault management prototype.",
-    version="0.1.0",
-)
 
-app.include_router(sensors_router)
-app.include_router(grid_router)
-app.include_router(billing_router)
-app.include_router(equipment_router)
-app.include_router(alerts_router)
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    yield
+    await redis.shutdown()
+    await neo4j.shutdown()
+    await mongo.shutdown()
+    await postgres.shutdown()
+    await cassandra.shutdown()
+
+
+app = FastAPI(title="GridSense API", lifespan=lifespan)
+
+app.include_router(sensors.router)
+app.include_router(grid.router)
+app.include_router(equipment.router)
+app.include_router(billing.router)
+app.include_router(alerts.router)
 
 
 @app.get("/health")
-def health_check():
+async def health_check():
     return {
         "status": "ok",
         "service": "gridsense-api",
@@ -28,7 +34,7 @@ def health_check():
 
 
 @app.get("/")
-def root():
+async def root():
     return {
         "message": "GridSense API is running",
         "docs": "/docs",

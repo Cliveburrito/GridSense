@@ -1,5 +1,7 @@
 fastapi
 uvicorn[standard]
-pydantic-settings
-psycopg[binary]
-pymongo
+asyncpg
+motor
+cassandra-driver
+neo4j
+redis

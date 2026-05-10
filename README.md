@@ -32,7 +32,7 @@ api/
     redis.py
 ```
 
-Billing and equipment are working PostgreSQL and MongoDB slices. Sensors, grid, alerts, and the not-yet-built invoice/account endpoints return `501 Not Implemented` until their Cassandra, Neo4j, Redis, and billing transaction passes are implemented.
+The FastAPI gateway exposes the required Cassandra, Neo4j, MongoDB, PostgreSQL, and Redis endpoints. The route handlers are async: Neo4j uses `AsyncGraphDatabase`, MongoDB uses Motor, PostgreSQL uses an `asyncpg` pool, Redis uses `redis.asyncio`, and Cassandra uses async futures from `cassandra-driver`. PostgreSQL billing uses JSONB tariff rules for invoice calculation, Cassandra stores readings in both sensor-oriented and dashboard-oriented tables, Redis caches sensor summaries and active alerts, MongoDB keeps heterogeneous equipment documents, and Neo4j handles topology traversal.
 
 ## Local verification
 
@@ -78,6 +78,14 @@ Check recent bills:
 curl http://localhost:8000/billing/bills
 ```
 
+Populate the larger assessment data set after the services are healthy:
+
+```bash
+python scripts/seed.py
+```
+
+The script is idempotent and creates 10 substations, 40 transformers, 200 smart meters, 50,000 sensor readings across 20 sensors, 30 equipment records, and 100 billing accounts with invoices.
+
 Check PostgreSQL seed counts:
 
 ```bash
@@ -102,6 +110,69 @@ curl -X POST http://localhost:8000/billing/bills \
     \"total_amount\": \"48.25\",
     \"status\": \"ISSUED\"
   }"
+```
+
+Generate an invoice using tariff JSONB rules:
+
+```bash
+PREMISE_ID=$(docker compose exec -T billing-db sh -lc 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Atc "SELECT premise_id FROM premises ORDER BY created_at LIMIT 1"')
+
+curl -X POST http://localhost:8000/billing/invoice \
+  -H 'Content-Type: application/json' \
+  -d "{
+    \"premise_id\": \"${PREMISE_ID}\",
+    \"billing_month\": \"2026-05-01\",
+    \"total_kwh\": \"315.250\"
+  }"
+```
+
+Fetch account balance and bill history:
+
+```bash
+curl "http://localhost:8000/billing/account/${PREMISE_ID}"
+```
+
+## Sensor API examples
+
+Ingest one reading:
+
+```bash
+curl -X POST http://localhost:8000/sensors/readings \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "sensor_id": "SENSOR_DEMO",
+    "reading_time": "2026-05-10T12:00:00Z",
+    "metric_type": "voltage",
+    "value": 229.4,
+    "unit": "V",
+    "quality_flag": 0,
+    "district_id": "DISTRICT_01"
+  }'
+```
+
+Read latest values and cached summary:
+
+```bash
+curl "http://localhost:8000/sensors/SENSOR_DEMO/readings?limit=10"
+curl http://localhost:8000/sensors/SENSOR_DEMO/summary
+```
+
+## Grid and alert examples
+
+Fault impact traversal:
+
+```bash
+curl "http://localhost:8000/grid/fault-impact/SS_001?max_depth=4"
+```
+
+Publish and read active alerts:
+
+```bash
+curl -X POST http://localhost:8000/alerts/publish \
+  -H 'Content-Type: application/json' \
+  -d '{"node_id": "TX_001_A", "severity": "critical", "message": "Transformer overload"}'
+
+curl http://localhost:8000/alerts/active
 ```
 
 ## Equipment API examples

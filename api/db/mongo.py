@@ -1,23 +1,24 @@
+import os
 from functools import lru_cache
 
-from pymongo import MongoClient
-from pymongo.database import Database
-
-from core.config import get_settings
+from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 
 
 @lru_cache
-def get_mongo_client() -> MongoClient:
-    settings = get_settings()
-    return MongoClient(
-        host=settings.mongo_host,
-        port=settings.mongo_port,
-        username=settings.mongo_username,
-        password=settings.mongo_password,
+def get_mongo_client() -> AsyncIOMotorClient:
+    return AsyncIOMotorClient(
+        host=os.getenv("MONGO_HOST", "catalog-db"),
+        port=int(os.getenv("MONGO_PORT", "27017")),
+        username=os.environ["MONGO_INITDB_ROOT_USERNAME"],
+        password=os.environ["MONGO_INITDB_ROOT_PASSWORD"],
         authSource="admin",
     )
 
 
-def get_mongo_database() -> Database:
-    settings = get_settings()
-    return get_mongo_client()[settings.mongo_database]
+def get_mongo_database() -> AsyncIOMotorDatabase:
+    return get_mongo_client()[os.getenv("MONGO_INITDB_DATABASE", "gridsense_catalog")]
+
+
+async def shutdown() -> None:
+    if get_mongo_client.cache_info().currsize:
+        get_mongo_client().close()

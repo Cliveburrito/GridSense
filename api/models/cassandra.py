@@ -11,6 +11,7 @@ class SensorReading(BaseModel):
     value: float
     unit: str
     quality_flag: int = Field(ge=0, le=9)
+    district_id: str = "network"
 
 
 class SensorReadingBatch(BaseModel):
@@ -19,4 +20,9 @@ class SensorReadingBatch(BaseModel):
 
 class SensorSummary(BaseModel):
     sensor_id: str
-    status: Literal["not_implemented"] = "not_implemented"
+    latest: SensorReading | None = None
+    count_1h: int
+    min_value_1h: float | None = None
+    max_value_1h: float | None = None
+    avg_value_1h: float | None = None
+    source: Literal["cache", "cassandra"] = "cassandra"
