@@ -2,8 +2,8 @@ from uuid import UUID
 
 from psycopg.errors import CheckViolation, ForeignKeyViolation, UniqueViolation
 
-from app.billing.schemas import BillCreate
-from app.db.postgres import get_connection
+from billing.schemas import BillCreate
+from db.postgres import get_connection
 
 
 class BillingRepositoryError(Exception):

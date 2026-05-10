@@ -6,6 +6,34 @@ From an engineering point of view, the goal is to design and build a small but r
 
 The project models a regional power grid where engineers need to ingest sensor readings, analyze fault propagation, store equipment metadata, manage billing records, and serve fast dashboard views.
 
+## API package structure
+
+The runnable FastAPI app now uses the Part B handout layout directly under `api/`. The API container starts `uvicorn main:app`.
+
+```text
+api/
+  main.py
+  routers/
+    sensors.py
+    grid.py
+    equipment.py
+    billing.py
+    alerts.py
+  models/
+    cassandra.py
+    graph.py
+    mongo.py
+    postgres.py
+  db/
+    cassandra.py
+    neo4j.py
+    mongo.py
+    postgres.py
+    redis.py
+```
+
+Billing and equipment are working PostgreSQL and MongoDB slices. Sensors, grid, alerts, and the not-yet-built invoice/account endpoints return `501 Not Implemented` until their Cassandra, Neo4j, Redis, and billing transaction passes are implemented.
+
 ## Local verification
 
 Start the stack:
@@ -74,4 +102,60 @@ curl -X POST http://localhost:8000/billing/bills \
     \"total_amount\": \"48.25\",
     \"status\": \"ISSUED\"
   }"
+```
+
+## Equipment API examples
+
+List equipment metadata:
+
+```bash
+curl http://localhost:8000/equipment
+```
+
+List transformers:
+
+```bash
+curl "http://localhost:8000/equipment?type=transformer"
+```
+
+Get one equipment document:
+
+```bash
+curl http://localhost:8000/equipment/TX_001_A
+```
+
+Get a transformer and linked equipment:
+
+```bash
+curl http://localhost:8000/equipment/transformer/TX_001_A
+```
+
+Register flexible equipment metadata:
+
+```bash
+DEMO_EQUIPMENT_ID="SM_DEMO_$(date +%s)"
+
+curl -X POST http://localhost:8000/equipment \
+  -H 'Content-Type: application/json' \
+  -d "{
+    \"equipment_id\": \"${DEMO_EQUIPMENT_ID}\",
+    \"type\": \"smart_meter\",
+    \"manufacturer\": \"DemoGrid\",
+    \"transformer_id\": \"TX_001_A\",
+    \"telemetry_fields\": [\"voltage\", \"current\", \"energy_kwh\"]
+  }"
+```
+
+Patch equipment metadata:
+
+```bash
+curl -X PATCH "http://localhost:8000/equipment/${DEMO_EQUIPMENT_ID}" \
+  -H 'Content-Type: application/json' \
+  -d '{"firmware": "1.0.1", "commissioning_status": "verified"}'
+```
+
+Check MongoDB equipment seed data:
+
+```bash
+docker compose exec -T catalog-db mongosh -u "$MONGO_INITDB_ROOT_USERNAME" -p "$MONGO_INITDB_ROOT_PASSWORD" --authenticationDatabase admin gridsense_catalog --eval "db.equipment.countDocuments(); db.equipment.find().limit(3).pretty();"
 ```

@@ -1,7 +1,7 @@
 from uuid import UUID
 
-from app.billing import repository
-from app.billing.schemas import BillCreate
+from billing import repository
+from billing.schemas import BillCreate
 
 
 def list_customers(limit: int) -> list[dict]:

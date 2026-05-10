@@ -3,8 +3,8 @@ from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Query, status
 
-from app.billing import repository, service
-from app.billing.schemas import Bill, BillCreate, Customer, Tariff
+from billing import repository, service
+from billing.schemas import Bill, BillCreate, Customer, Tariff
 
 router = APIRouter(prefix="/billing", tags=["billing"])
 
@@ -61,3 +61,19 @@ def create_bill(bill: BillCreate):
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(exc),
         ) from exc
+
+
+@router.get("/account/{premise_id}")
+def get_billing_account(premise_id: UUID):
+    raise HTTPException(
+        status_code=status.HTTP_501_NOT_IMPLEMENTED,
+        detail="Billing account balance endpoint is planned for the invoice implementation pass.",
+    )
+
+
+@router.post("/invoice")
+def create_invoice(invoice: dict):
+    raise HTTPException(
+        status_code=status.HTTP_501_NOT_IMPLEMENTED,
+        detail="Monthly invoice generation is planned for the invoice implementation pass.",
+    )

@@ -10,6 +10,11 @@ class Settings(BaseSettings):
     postgres_db: str = Field(default="gridsense_billing", alias="POSTGRES_DB")
     postgres_user: str = Field(alias="POSTGRES_USER")
     postgres_password: str = Field(alias="POSTGRES_PASSWORD")
+    mongo_host: str = Field(default="catalog-db", alias="MONGO_HOST")
+    mongo_port: int = Field(default=27017, alias="MONGO_PORT")
+    mongo_database: str = Field(default="gridsense_catalog", alias="MONGO_INITDB_DATABASE")
+    mongo_username: str = Field(alias="MONGO_INITDB_ROOT_USERNAME")
+    mongo_password: str = Field(alias="MONGO_INITDB_ROOT_PASSWORD")
 
     model_config = SettingsConfigDict(
         env_file=".env",

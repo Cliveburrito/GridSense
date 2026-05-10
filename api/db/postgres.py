@@ -4,7 +4,7 @@ from contextlib import contextmanager
 import psycopg
 from psycopg.rows import dict_row
 
-from app.core.config import get_settings
+from core.config import get_settings
 
 
 @contextmanager
