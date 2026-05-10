@@ -139,8 +139,8 @@ async def create_equipment(equipment: dict):
     return await _get_equipment_document(normalized["equipment_id"])
 
 
-@router.patch("/{equipment_id}", response_model=EquipmentDocument)
-async def update_equipment(equipment_id: str, updates: dict):
+@router.patch("/{asset_id}", response_model=EquipmentDocument)
+async def update_equipment(asset_id: str, updates: dict):
     normalized = dict(updates)
     normalized.pop("_id", None)
     normalized.pop("equipment_id", None)
@@ -152,7 +152,7 @@ async def update_equipment(equipment_id: str, updates: dict):
         )
 
     equipment = await _equipment_collection().find_one_and_update(
-        {"equipment_id": equipment_id.strip()},
+        {"equipment_id": asset_id.strip()},
         {"$set": normalized},
         return_document=ReturnDocument.AFTER,
     )
@@ -165,9 +165,9 @@ async def update_equipment(equipment_id: str, updates: dict):
     return _serialize_document(equipment)
 
 
-@router.get("/{equipment_id}", response_model=EquipmentDocument)
-async def get_equipment(equipment_id: str):
-    equipment = await _get_equipment_document(equipment_id.strip())
+@router.get("/{asset_id}", response_model=EquipmentDocument)
+async def get_equipment(asset_id: str):
+    equipment = await _get_equipment_document(asset_id.strip())
     if equipment is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

@@ -1,14 +1,16 @@
 from __future__ import annotations
 
+import asyncio
 import os
 import random
 import socket
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from pathlib import Path
-from uuid import uuid5, NAMESPACE_DNS
+from urllib.parse import urlparse, urlunparse
+from uuid import NAMESPACE_DNS, uuid5
 
-import psycopg
+import asyncpg
 from cassandra.cluster import Cluster
 from cassandra.concurrent import execute_concurrent_with_args
 from neo4j import GraphDatabase
@@ -39,12 +41,27 @@ def reachable_host(host: str) -> str:
         return "localhost"
 
 
+def reachable_neo4j_uri(uri: str) -> str:
+    parsed = urlparse(uri)
+    host = parsed.hostname
+    if host is None:
+        return uri
+    try:
+        socket.gethostbyname(host)
+        return uri
+    except socket.gaierror:
+        if host == "graph-db":
+            netloc = parsed.netloc.replace("graph-db", "localhost", 1)
+            return urlunparse(parsed._replace(netloc=netloc))
+        return uri
+
+
 def bucket_minute(reading_time: datetime) -> str:
     return reading_time.astimezone(timezone.utc).strftime("%Y%m%d%H%M")
 
 
 def seed_cassandra(env: dict[str, str]) -> None:
-    host = reachable_host(env.get("CASSANDRA_HOST", "localhost"))
+    host = reachable_host(env.get("CASSANDRA_HOST", "timeseries-db"))
     port = int(env.get("CASSANDRA_PORT", "9042"))
     keyspace = env.get("CASSANDRA_KEYSPACE", "gridsense")
     cluster = Cluster([host], port=port)
@@ -68,7 +85,7 @@ def seed_cassandra(env: dict[str, str]) -> None:
         """
     )
 
-    start = datetime.now(timezone.utc).replace(microsecond=0) - timedelta(hours=2)
+    start = datetime(2026, 5, 10, 0, 0, 0, tzinfo=timezone.utc)
     sensor_params = []
     bucket_params = []
     metrics = [
@@ -122,9 +139,7 @@ def seed_cassandra(env: dict[str, str]) -> None:
 
 def seed_neo4j(env: dict[str, str]) -> None:
     password = env["NEO4J_PASSWORD"]
-    uri = env.get("NEO4J_URI", "bolt://localhost:7687")
-    if "graph-db" in uri:
-        uri = uri.replace("graph-db", "localhost")
+    uri = reachable_neo4j_uri(env.get("NEO4J_URI", "bolt://graph-db:7687"))
     driver = GraphDatabase.driver(uri, auth=(env.get("NEO4J_USER", "neo4j"), password))
 
     cypher = """
@@ -208,7 +223,7 @@ def seed_neo4j(env: dict[str, str]) -> None:
 
 
 def seed_mongo(env: dict[str, str]) -> None:
-    host = reachable_host(env.get("MONGO_HOST", "localhost"))
+    host = reachable_host(env.get("MONGO_HOST", "catalog-db"))
     client = MongoClient(
         host=host,
         port=int(env.get("MONGO_PORT", "27017")),
@@ -228,6 +243,7 @@ def seed_mongo(env: dict[str, str]) -> None:
                 "manufacturer": random.choice(["ABB", "Siemens", "Schneider"]),
                 "rated_kva": random.choice([250, 400, 630]),
                 "telemetry": {"oil_temperature": True, "load_percent": True},
+                f"vendor_transformer_metric_{i:02d}": round(0.1 * i, 3),
             }
         )
     for i in range(1, 11):
@@ -239,6 +255,7 @@ def seed_mongo(env: dict[str, str]) -> None:
                 "interrupting_capacity_ka": random.choice([16, 20, 25]),
                 "feeder_id": f"F_{i:03d}",
                 "maintenance": {"operation_count": i * 37},
+                f"switchgear_option_{i:02d}": {"enabled": i % 2 == 0},
             }
         )
     for i in range(1, 11):
@@ -251,6 +268,7 @@ def seed_mongo(env: dict[str, str]) -> None:
                 "transformer_id": f"TX_{((i - 1) % 10) + 1:03d}",
                 "telemetry_fields": telemetry_fields,
                 "firmware": {"major": 2, "minor": i},
+                f"meter_vendor_extension_{i:02d}": telemetry_fields[:i],
             }
         )
 
@@ -268,58 +286,59 @@ def deterministic_uuid(value: str) -> str:
     return str(uuid5(NAMESPACE_DNS, value))
 
 
-def seed_postgres(env: dict[str, str]) -> None:
-    host = reachable_host(env.get("POSTGRES_HOST", "localhost"))
-    with psycopg.connect(
+async def seed_postgres(env: dict[str, str]) -> None:
+    host = reachable_host(env.get("POSTGRES_HOST", "billing-db"))
+    conn = await asyncpg.connect(
         host=host,
         port=int(env.get("POSTGRES_PORT", "5432")),
-        dbname=env.get("POSTGRES_DB", "gridsense_billing"),
+        database=env.get("POSTGRES_DB", "gridsense_billing"),
         user=env["POSTGRES_USER"],
         password=env["POSTGRES_PASSWORD"],
-    ) as conn:
-        with conn.cursor() as cur:
+    )
+    try:
+        async with conn.transaction():
             for i in range(1, 101):
                 customer_id = deterministic_uuid(f"customer-{i}")
                 premise_id = deterministic_uuid(f"premise-{i}")
                 email = f"customer{i:03d}@example.com"
-                cur.execute(
+                await conn.execute(
                     """
                     INSERT INTO customers (customer_id, full_name, email)
-                    VALUES (%s, %s, %s)
+                    VALUES ($1, $2, $3)
                     ON CONFLICT (email) DO UPDATE SET full_name = EXCLUDED.full_name
                     """,
-                    (customer_id, f"Customer {i:03d}", email),
+                    customer_id,
+                    f"Customer {i:03d}",
+                    email,
                 )
-                cur.execute(
+                await conn.execute(
                     """
                     INSERT INTO premises (
                         premise_id, customer_id, address, district, transformer_id
                     )
-                    VALUES (%s, %s, %s, %s, %s)
+                    VALUES ($1, $2, $3, $4, $5)
                     ON CONFLICT (premise_id) DO NOTHING
                     """,
-                    (
-                        premise_id,
-                        customer_id,
-                        f"{i} Grid Avenue",
-                        f"DISTRICT_{((i - 1) % 5) + 1:02d}",
-                        f"TX_{((i - 1) % 40) + 1:03d}",
-                    ),
+                    premise_id,
+                    customer_id,
+                    f"{i} Grid Avenue",
+                    f"DISTRICT_{((i - 1) % 5) + 1:02d}",
+                    f"TX_{((i - 1) % 40) + 1:03d}",
                 )
-                cur.execute(
+                await conn.execute(
                     """
                     INSERT INTO bills (
                         premise_id, billing_month, total_kwh, total_amount, status
                     )
-                    VALUES (%s, DATE '2026-04-01', %s, %s, 'ISSUED')
+                    VALUES ($1, DATE '2026-04-01', $2, $3, 'ISSUED')
                     ON CONFLICT (premise_id, billing_month) DO NOTHING
                     """,
-                    (
-                        premise_id,
-                        Decimal("180.0") + Decimal(i),
-                        Decimal("35.00") + Decimal(i) / Decimal("10"),
-                    ),
+                    premise_id,
+                    Decimal("180.0") + Decimal(i),
+                    Decimal("35.00") + Decimal(i) / Decimal("10"),
                 )
+    finally:
+        await conn.close()
     print("Seeded PostgreSQL: 100 accounts with invoice records.")
 
 
@@ -339,7 +358,7 @@ def main() -> None:
     seed_cassandra(env)
     seed_neo4j(env)
     seed_mongo(env)
-    seed_postgres(env)
+    asyncio.run(seed_postgres(env))
 
 
 if __name__ == "__main__":
