@@ -1,6 +1,7 @@
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, status
+from neo4j import AsyncDriver
 
 from db.neo4j import get_driver
 from models.graph import AffectedNode, FaultImpactResponse, RestorePathResponse
@@ -14,13 +15,13 @@ VALID_LABELS = {"GridSupplyPoint", "Substation", "Transformer", "SmartMeter"}
 VALID_RELATIONSHIPS = {"FEEDS", "SUPPLIES", "CONNECTS_TO", "TIE_LINE"}
 
 
-async def _node_exists(node_id: str) -> bool:
+async def _node_exists(driver: AsyncDriver, node_id: str) -> bool:
     cypher = f"""
         MATCH (n)
         WHERE {NODE_ID_EXPR} = $node_id
         RETURN count(n) > 0 AS exists
     """
-    async with get_driver().session(database="neo4j") as session:
+    async with driver.session(database="neo4j") as session:
         result = await session.run(cypher, node_id=node_id)
         record = await result.single()
     return bool(record and record["exists"])
@@ -28,6 +29,11 @@ async def _node_exists(node_id: str) -> bool:
 
 @router.get("/fault-impact/{node_id}", response_model=FaultImpactResponse)
 async def get_fault_impact(node_id: str, max_depth: int = 6):
+    """
+    Return all nodes that would lose supply if node_id trips.
+    Uses bounded variable-length Cypher traversal to avoid accidental
+    full-graph scans on malformed input.
+    """
     if max_depth > 10:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -43,11 +49,12 @@ async def get_fault_impact(node_id: str, max_depth: int = 6):
                min(length(p)) AS depth
         ORDER BY depth, node_id
     """
-    async with get_driver().session(database="neo4j") as session:
+    driver = get_driver()
+    async with driver.session(database="neo4j") as session:
         result = await session.run(cypher, node_id=node_id)
         records = await result.data()
 
-    if not records and not await _node_exists(node_id):
+    if not records and not await _node_exists(driver, node_id):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Node '{node_id}' not found in topology graph.",
@@ -81,7 +88,7 @@ async def get_restore_paths(node_id: str):
         result = await session.run(cypher, node_id=node_id)
         records = await result.data()
 
-    if not records and not await _node_exists(node_id):
+    if not records and not await _node_exists(get_driver(), node_id):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Node '{node_id}' not found in topology graph.",

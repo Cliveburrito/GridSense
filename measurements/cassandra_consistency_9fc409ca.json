@@ -1,0 +1,35 @@
+[
+  {
+    "consistency_level": "ONE",
+    "attempted_events": 10000,
+    "successful_events": 10000,
+    "errors": 0,
+    "sample_errors": [],
+    "duration_seconds": 8.125,
+    "events_per_second": 1230.73,
+    "p50_latency_ms": 30.253,
+    "p95_latency_ms": 59.254
+  },
+  {
+    "consistency_level": "LOCAL_QUORUM",
+    "attempted_events": 10000,
+    "successful_events": 10000,
+    "errors": 0,
+    "sample_errors": [],
+    "duration_seconds": 7.752,
+    "events_per_second": 1290.01,
+    "p50_latency_ms": 28.169,
+    "p95_latency_ms": 58.995
+  },
+  {
+    "consistency_level": "ALL",
+    "attempted_events": 10000,
+    "successful_events": 10000,
+    "errors": 0,
+    "sample_errors": [],
+    "duration_seconds": 7.902,
+    "events_per_second": 1265.46,
+    "p50_latency_ms": 29.032,
+    "p95_latency_ms": 57.025
+  }
+]
